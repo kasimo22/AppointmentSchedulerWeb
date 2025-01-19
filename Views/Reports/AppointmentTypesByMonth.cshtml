@@ -1,0 +1,64 @@
+﻿@model IEnumerable<dynamic>
+
+@{
+    ViewBag.Title = "Appointment Types by Month";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4"><i class="fas fa-calendar-alt"></i> Appointment Types by Month</h2>
+
+    @foreach (var item in Model)
+    {
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar"></i> @item.Month -
+                    <i class="fas fa-briefcase"></i> @item.Type
+                    <span class="badge bg-light text-dark ml-2">@item.Count appointment(s)</span>
+                </h5>
+            </div>
+
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col"><i class="fas fa-clock"></i> Start Time</th>
+                            <th scope="col"><i class="fas fa-clock"></i> End Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var appointment in item.Appointments)
+                        {
+                            <tr>
+                                <td>
+                                    @{
+                                        DateTime startTime = appointment.Start is DateTime
+                                        ? appointment.Start
+                                        : DateTime.Parse(appointment.Start.ToString());
+                                    }
+                                    @startTime.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                </td>
+                                <td>
+                                    @{
+                                        DateTime endTime = appointment.End is DateTime
+                                        ? appointment.End
+                                        : DateTime.Parse(appointment.End.ToString());
+                                    }
+                                    @endTime.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="text-center mt-4">
+        <a asp-controller="MainMenu" asp-action="Index" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Main Menu
+        </a>
+    </div>
+</div>
+
+

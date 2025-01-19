@@ -1,0 +1,42 @@
+﻿@{
+    ViewBag.Title = "Login";
+}
+
+<div class="text-center mt-5">
+    <h1 style="font-size: 3rem; font-weight: bold; text-shadow: 2px 2px 5px rgba(0,0,0,0.1);">Appointment Scheduler</h1>
+    <p style="font-size: 1.2rem; color: #555;">Please log in to continue</p>
+</div>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <form asp-action="Authenticate" method="post">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control" name="username" placeholder="Enter username" required />
+                </div>
+                <br />
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" class="form-control" name="password" placeholder="Enter password" required />
+                </div>
+                <br />
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+            </form>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger mt-3">@ViewBag.Error</div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (TempData["UpcomingAlert"] != null)
+{
+    <div style="color:green">
+        @TempData["UpcomingAlert"]
+    </div>
+}
+
+

@@ -1,0 +1,88 @@
+﻿@{
+    ViewBag.Title = "Main Menu";
+}
+
+<!-- Main Container -->
+<div class="container mt-5">
+
+    <!-- Welcome Header -->
+    <div class="text-center mb-4">
+        <h1 class="display-4">Welcome, @ViewBag.Username!</h1>
+        <p class="lead">Manage your scheduling tasks with ease.</p>
+    </div>
+
+    <!-- Management Section -->
+    <div class="row justify-content-center mb-5">
+
+        <!-- Manage Customers Card -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Manage Customers</h5>
+                    <p class="card-text">View, add, update, or remove customers.</p>
+                    <a asp-controller="Customer" asp-action="Index" class="btn btn-outline-primary btn-block">Go to Customers</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Appointments Card -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-alt fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Manage Appointments</h5>
+                    <p class="card-text">Schedule and manage your appointments.</p>
+                    <a asp-controller="Appointment" asp-action="Index" class="btn btn-outline-success btn-block">Go to Appointments</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Reports Section -->
+    <div class="row justify-content-center">
+
+        <!-- Appointment Types by Month -->
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-bar fa-2x text-info mb-2"></i>
+                    <h6>Appointment Types by Month</h6>
+                    <a asp-controller="Reports" asp-action="AppointmentTypesByMonth" class="btn btn-outline-info btn-block">View Report</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Schedules -->
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-clock fa-2x text-warning mb-2"></i>
+                    <h6>User Schedules</h6>
+                    <a asp-controller="Reports" asp-action="UserSchedules" class="btn btn-outline-warning btn-block">View Report</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointments per Customer -->
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-address-book fa-2x text-secondary mb-2"></i>
+                    <h6>Appointments per Customer</h6>
+                    <a asp-controller="Reports" asp-action="AppointmentsPerCustomer" class="btn btn-outline-secondary btn-block">View Report</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Logout Button -->
+    <div class="text-center mt-5">
+        <a asp-controller="Login" asp-action="Index" class="btn btn-danger btn-lg">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </div>
+
+</div>
