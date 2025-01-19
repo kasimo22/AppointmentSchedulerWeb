@@ -10,17 +10,17 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System.Resources;
+using Microsoft.EntityFrameworkCore;
+using AppointmentSchedulerWeb.Data;
 
 namespace AppointmentSchedulerWeb.Controllers
 {
     public class LoginController : Controller
     {
-        private readonly string _connectionString;
-        private readonly ResourceManager _resourceManager = new ResourceManager("AppointmentSchedulerWeb.Resources.LoginForm", typeof(LoginController).Assembly);
-
-        public LoginController(IConfiguration configuration)
+        private readonly DatabaseContext _context;
+        public LoginController(DatabaseContext context)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _context = context;
         }
 
         private string HashPassword(string password)
@@ -29,9 +29,9 @@ namespace AppointmentSchedulerWeb.Controllers
             {
                 byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(password));
                 StringBuilder builder = new StringBuilder();
-                foreach (var b in bytes)
+                for (int i = 0; i < bytes.Length; i++)
                 {
-                    builder.Append(b.ToString("x2"));
+                    builder.Append(bytes[i].ToString("x2"));
                 }
                 return builder.ToString();
             }
@@ -54,41 +54,32 @@ namespace AppointmentSchedulerWeb.Controllers
                     return View("Index");
                 }
 
-                using (var connection = new NpgsqlConnection(_connectionString))
+                // Fetch user from the database
+                var user = _context.Users.FirstOrDefault(u => u.UserName == username);
+
+                if (user == null)
                 {
-                    connection.Open();
-
-                    string query = "SELECT \"userId\", \"password\" FROM \"user\" WHERE \"userName\" = @username";
-                    using (var command = new NpgsqlCommand(query, connection))
-                    {
-                        command.Parameters.AddWithValue("@username", username);
-
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                int userId = Convert.ToInt32(reader["userId"]);
-                                string storedHashedPassword = reader["password"].ToString();
-
-                                string inputHashedPassword = HashPassword(password);
-
-                                if (storedHashedPassword == inputHashedPassword)
-                                {
-                                    HttpContext.Session.SetInt32("UserId", userId);
-                                    HttpContext.Session.SetString("Username", username);
-
-                                    LogLogin(username);
-                                    CheckUpcomingAppointments(userId);
-
-                                    return RedirectToAction("Index", "MainMenu");
-                                }
-                            }
-                        }
-                    }
-
                     ViewBag.Error = "Invalid username or password. Please try again.";
                     return View("Index");
                 }
+
+                // Hash the entered password and compare with the stored hash
+                string inputHashedPassword = HashPassword(password);
+                if (user.Password != inputHashedPassword)
+                {
+                    ViewBag.Error = "Invalid username or password. Please try again.";
+                    return View("Index");
+                }
+
+                // Set session variables for the authenticated user
+                HttpContext.Session.SetInt32("UserId", user.UserId);
+                HttpContext.Session.SetString("Username", user.UserName);
+
+                // Optional: Check for upcoming appointments or log the login
+                LogLogin(user.UserName);
+                CheckUpcomingAppointments(user.UserId);
+
+                return RedirectToAction("Index", "MainMenu");
             }
             catch (Exception ex)
             {
@@ -99,47 +90,32 @@ namespace AppointmentSchedulerWeb.Controllers
 
         private void CheckUpcomingAppointments(int userId)
         {
-            using (var connection = new NpgsqlConnection(_connectionString))
-            {
-                connection.Open();
-                string query = @"
-                    SELECT a.type, a.start, c.customerName
-                    FROM appointment a
-                    JOIN customer c ON a.customerId = c.customerId
-                    WHERE a.userId = @userId
-                    AND a.start BETWEEN NOW() AND NOW() + INTERVAL '15 minutes'";
-
-                using (var command = new NpgsqlCommand(query, connection))
+            var upcomingAppointments = _context.Appointments
+                .Where(a => a.UserId == userId && a.Start >= DateTime.UtcNow && a.Start <= DateTime.UtcNow.AddMinutes(15))
+                .Include(a => a.Customer)
+                .Select(a => new
                 {
-                    command.Parameters.AddWithValue("@userId", userId);
+                    a.Type,
+                    a.Start,
+                    CustomerName = a.Customer.CustomerName
+                })
+                .ToList();
 
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.HasRows)
-                        {
-                            string alertMessage = _resourceManager.GetString("UpcomingAppointments", CultureInfo.CurrentCulture) + "\n";
-
-                            while (reader.Read())
-                            {
-                                string type = reader["type"].ToString();
-                                DateTime utcStart = Convert.ToDateTime(reader["start"]);
-                                DateTime localStart = utcStart.ToLocalTime();
-                                string formattedTime = localStart.ToString("MM/dd/yyyy hh:mm tt");
-
-                                string customerName = reader["customerName"].ToString();
-                                alertMessage += $"- {type} with {customerName} at {formattedTime}\n";
-                            }
-
-                            TempData["UpcomingAlert"] = alertMessage;
-                        }
-                    }
+            if (upcomingAppointments.Any())
+            {
+                string alertMessage = "Upcoming Appointments:\n";
+                foreach (var appointment in upcomingAppointments)
+                {
+                    alertMessage += $"- {appointment.Type} with {appointment.CustomerName} at {appointment.Start.ToLocalTime():MM/dd/yyyy hh:mm tt}\n";
                 }
+
+                TempData["UpcomingAlert"] = alertMessage;
             }
         }
 
         private void LogLogin(string username)
         {
-            string logPath = "wwwroot/Login_History.txt";
+            string logPath = Path.Combine("wwwroot", "Login_History.txt");
             string logEntry = $"{DateTime.Now}: {username} logged in.";
             System.IO.File.AppendAllText(logPath, logEntry + Environment.NewLine);
         }
