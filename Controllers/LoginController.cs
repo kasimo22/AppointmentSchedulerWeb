@@ -12,13 +12,15 @@ using Npgsql;
 using System.Resources;
 using Microsoft.EntityFrameworkCore;
 using AppointmentSchedulerWeb.Data;
+using System.Configuration;
 
 namespace AppointmentSchedulerWeb.Controllers
 {
     public class LoginController : Controller
     {
         private readonly DatabaseContext _context;
-        public LoginController(DatabaseContext context)
+        private readonly IConfiguration _configuration;
+        public LoginController(DatabaseContext context, IConfiguration configuration)
         {
             _context = context;
         }
@@ -46,47 +48,71 @@ namespace AppointmentSchedulerWeb.Controllers
         [HttpPost]
         public IActionResult Authenticate(string username, string password)
         {
+            Console.Error.WriteLine($"Attempting to authenticate user: {username}");
+
             try
             {
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 {
                     ViewBag.Error = "Username and password fields cannot be empty.";
+                    Console.Error.WriteLine("Error: Username or password is empty.");
                     return View("Index");
                 }
 
-                // Fetch user from the database
-                var user = _context.Users.FirstOrDefault(u => u.UserName == username);
+                // Retrieve the connection string from appsettings.json
+                string connectionString = _configuration.GetConnectionString("DefaultConnection");
 
-                if (user == null)
+                using (var connection = new NpgsqlConnection(connectionString))
                 {
+                    connection.Open();
+                    Console.Error.WriteLine("Database connection established.");
+
+                    // Query to get the stored hashed password
+                    string query = "SELECT \"userId\", \"password\" FROM \"user\" WHERE \"userName\" = @username";
+                    using var command = new NpgsqlCommand(query, connection);
+                    command.Parameters.AddWithValue("@username", username);
+
+                    using var reader = command.ExecuteReader();
+
+                    if (reader.Read())
+                    {
+                        int userId = Convert.ToInt32(reader["userId"]);
+                        string storedHashedPassword = reader["password"].ToString();
+
+                        // Hash the input password
+                        string inputHashedPassword = HashPassword(password);
+                        Console.Error.WriteLine($"Stored password hash: {storedHashedPassword}");
+                        Console.Error.WriteLine($"Input password hash: {inputHashedPassword}");
+
+                        // Compare hashed passwords
+                        if (storedHashedPassword == inputHashedPassword)
+                        {
+                            Console.Error.WriteLine("Password match. Logging in user.");
+                            HttpContext.Session.SetInt32("UserId", userId);
+                            HttpContext.Session.SetString("Username", username);
+
+                            LogLogin(username);
+                            CheckUpcomingAppointments(userId);
+
+                            return RedirectToAction("Index", "MainMenu");
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine("Password mismatch.");
+                        }
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine("No user found with the given username.");
+                    }
+
                     ViewBag.Error = "Invalid username or password. Please try again.";
                     return View("Index");
                 }
-
-                Console.WriteLine($"User retrieved: {user.UserName}");
-
-                // Hash the entered password and compare with the stored hash
-                string inputHashedPassword = HashPassword(password);
-                Console.WriteLine($"Input Hashed Password: {inputHashedPassword}");
-                Console.WriteLine($"Stored Password: {user.Password}");
-                if (user.Password != inputHashedPassword)
-                {
-                    ViewBag.Error = "Invalid username or password. Please try again.";
-                    return View("Index");
-                }
-
-                // Set session variables for the authenticated user
-                HttpContext.Session.SetInt32("UserId", user.UserId);
-                HttpContext.Session.SetString("Username", user.UserName);
-
-                // Optional: Check for upcoming appointments or log the login
-                LogLogin(user.UserName);
-                CheckUpcomingAppointments(user.UserId);
-
-                return RedirectToAction("Index", "MainMenu");
             }
             catch (Exception ex)
             {
+                Console.Error.WriteLine($"Exception occurred: {ex.Message}");
                 ViewBag.Error = "An unexpected error occurred: " + ex.Message;
                 return View("Index");
             }
