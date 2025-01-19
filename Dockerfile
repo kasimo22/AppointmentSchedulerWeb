@@ -1,20 +1,19 @@
-# Use official .NET SDK to build the app
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
+# Use the official .NET SDK image as a build environment
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+WORKDIR /app
 
-# Copy the .csproj file(s) and restore dependencies
-COPY *.sln .
-COPY AppointmentSchedulerWeb/*.csproj ./AppointmentSchedulerWeb/
+# Copy everything and restore dependencies
+COPY . ./
 RUN dotnet restore
 
-# Copy the rest of the application files and build the project
-COPY . .
-WORKDIR /src/YourAppName
-RUN dotnet publish -c Release -o /app/publish
+# Build the application in Release mode
+RUN dotnet publish -c Release -o out
 
-# Use a lightweight runtime image to run the app
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+# Use the runtime image for running the app
+FROM mcr.microsoft.com/dotnet/aspnet:7.0
 WORKDIR /app
-COPY --from=build /app/publish .
+COPY --from=build /app/out .
+
+# Expose the port and start the application
 EXPOSE 80
 ENTRYPOINT ["dotnet", "AppointmentSchedulerWeb.dll"]
