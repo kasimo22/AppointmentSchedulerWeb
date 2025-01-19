@@ -28,10 +28,10 @@ namespace AppointmentSchedulerWeb.Controllers
             if (!string.IsNullOrWhiteSpace(searchString))
             {
                 appointments = appointments.Where(a =>
-                    a.Type.Contains(searchString) ||
-                    a.Customer.CustomerName.Contains(searchString) ||
-                    a.User.UserName.Contains(searchString)
-                );
+                    EF.Functions.ILike(a.Type, $"%{searchString}%") ||
+                    EF.Functions.ILike(a.Customer.CustomerName, $"%{searchString}%") ||
+                    EF.Functions.ILike(a.User.UserName, $"%{searchString}%")
+);
             }
 
             ModelState.Clear();

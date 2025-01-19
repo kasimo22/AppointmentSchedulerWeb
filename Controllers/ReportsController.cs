@@ -18,7 +18,7 @@ namespace AppointmentSchedulerWeb.Controllers
         public IActionResult AppointmentTypesByMonth()
         {
             var rawData = _context.Appointments
-                .GroupBy(a => new { a.Type, a.Start.Month })
+                .GroupBy(a => new { a.Type, Month = a.Start.Month })
                 .Select(g => new
                 {
                     MonthNumber = g.Key.Month,
@@ -44,7 +44,7 @@ namespace AppointmentSchedulerWeb.Controllers
                         End = a.End.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
                     }).ToList()
                 })
-                .OrderBy(r => DateTime.ParseExact(r.Month, "MMMM", CultureInfo.CurrentCulture))
+                .OrderBy(r => r.Month)
                 .ToList();
 
             return View(report);
@@ -66,6 +66,7 @@ namespace AppointmentSchedulerWeb.Controllers
                         End = a.End.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
                     }).ToList()
                 })
+                .OrderBy(s => s.UserName)
                 .ToList();
 
             return View(schedules);
@@ -88,6 +89,7 @@ namespace AppointmentSchedulerWeb.Controllers
                         End = a.End.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
                     }).ToList()
                 })
+                .OrderBy(c => c.CustomerName)
                 .ToList();
 
             return View(customerAppointments);

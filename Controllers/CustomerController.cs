@@ -25,8 +25,9 @@ namespace AppointmentSchedulerWeb.Controllers
             if (!string.IsNullOrEmpty(searchString))
             {
                 customers = customers.Where(c =>
-                    c.CustomerName.Contains(searchString) ||
-                    c.Address.AddressLine1.Contains(searchString));
+                    EF.Functions.ILike(c.CustomerName, $"%{searchString}%") ||
+                    EF.Functions.ILike(c.Address.AddressLine1, $"%{searchString}%")
+                );
             }
 
             return View(customers.ToList());
@@ -210,17 +211,14 @@ namespace AppointmentSchedulerWeb.Controllers
         // Helper method to check/create address
         private int GetOrCreateAddress(string address, string phone)
         {
-            // Check if the address already exists for the given city and phone
             var existingAddress = _context.Addresses
-                .FirstOrDefault(a => a.AddressLine1 == address && a.Phone == phone);
+                .FirstOrDefault(a => EF.Functions.ILike(a.AddressLine1, address) && a.Phone == phone);
 
             if (existingAddress != null)
                 return existingAddress.AddressId;
 
-            // Retrieve the logged-in user for auditing
             string loggedInUser = HttpContext.Session.GetString("Username") ?? "System";
 
-            // Create a new address with the provided CityId
             var newAddress = new Address
             {
                 AddressLine1 = address,

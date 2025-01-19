@@ -2,20 +2,23 @@ using System.Diagnostics;
 using AppointmentSchedulerWeb.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
-using MySql.Data.MySqlClient;
 using System.Data;
+using AppointmentSchedulerWeb.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentSchedulerWeb.Controllers
 {
     public class MainMenuController : Controller
     {
-        private readonly string connectionString = "server=localhost;user=sqlUser;database=client_schedule;port=3306;password=Passw0rd!";
+        private readonly DatabaseContext _context;
         private readonly IStringLocalizer<MainMenuController> _localizer;
 
-        public MainMenuController(IStringLocalizer<MainMenuController> localizer)
+        public MainMenuController(DatabaseContext context, IStringLocalizer<MainMenuController> localizer)
         {
+            _context = context;
             _localizer = localizer;
         }
+
         public IActionResult Index()
         {
             // Retrieve username and userId from session
@@ -35,96 +38,61 @@ namespace AppointmentSchedulerWeb.Controllers
             return View();
         }
 
-        // Action for the Customer page
         public IActionResult Customer()
         {
             return RedirectToAction("Index", "Customer");
         }
 
-        // Action for the Appointment page
         public IActionResult Appointment()
         {
             return RedirectToAction("Index", "Appointment");
         }
 
-        // Action to generate the Appointment Types by Month Report
         public IActionResult Report1()
         {
             string report = GenerateAppointmentTypesByMonthReport();
             return Content(report, "text/plain");
         }
 
-        // Action to generate the Schedule for Each User Report
         public IActionResult Report2()
         {
             string report = GenerateScheduleForEachUser();
             return Content(report, "text/plain");
         }
 
-        // Action to generate the Total Appointments Per Customer Report
         public IActionResult Report3()
         {
             string report = GenerateTotalAppointmentsPerCustomerReport();
             return Content(report, "text/plain");
         }
 
-        // Action to logout
         public IActionResult Logout()
         {
             return RedirectToAction("Index", "Login");
         }
 
-        // Report: Appointment Types by Month
         private string GenerateAppointmentTypesByMonthReport()
         {
             try
             {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                var appointmentsByMonth = _context.Appointments
+                    .GroupBy(a => new { Month = a.Start.Month, a.Type })
+                    .Select(g => new
+                    {
+                        Month = g.Key.Month,
+                        Type = g.Key.Type,
+                        Count = g.Count()
+                    })
+                    .ToList();
+
+                string report = "Appointment Types by Month:\n";
+                foreach (var group in appointmentsByMonth)
                 {
-                    connection.Open();
-
-                    string query = "SELECT type, MONTH(start) AS month FROM appointment";
-                    MySqlCommand command = new MySqlCommand(query, connection);
-
-                    MySqlDataReader reader = command.ExecuteReader();
-
-                    var appointmentsByMonth = new Dictionary<int, Dictionary<string, int>>();
-
-                    while (reader.Read())
-                    {
-                        string type = reader["type"].ToString();
-                        int month = Convert.ToInt32(reader["month"]);
-
-                        if (!appointmentsByMonth.ContainsKey(month))
-                        {
-                            appointmentsByMonth[month] = new Dictionary<string, int>();
-                        }
-
-                        if (!appointmentsByMonth[month].ContainsKey(type))
-                        {
-                            appointmentsByMonth[month][type] = 1;
-                        }
-                        else
-                        {
-                            appointmentsByMonth[month][type]++;
-                        }
-                    }
-
-                    // Prepare the report string
-                    string report = "Appointment Types by Month:\n";
-                    foreach (var kvp in appointmentsByMonth)
-                    {
-                        string monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(kvp.Key);
-                        report += $"Month: {monthName}\n";
-
-                        foreach (var type in kvp.Value)
-                        {
-                            report += $"  {type.Key}: {type.Value}\n";
-                        }
-                    }
-
-                    return report;
+                    string monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(group.Month);
+                    report += $"Month: {monthName}, Type: {group.Type}, Count: {group.Count}\n";
                 }
+
+                return report;
             }
             catch (Exception ex)
             {
@@ -132,52 +100,34 @@ namespace AppointmentSchedulerWeb.Controllers
             }
         }
 
-        // Report: Schedule for Each User
         private string GenerateScheduleForEachUser()
         {
             try
             {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                var schedules = _context.Appointments
+                    .Include(a => a.User)
+                    .Select(a => new
+                    {
+                        UserName = a.User.UserName,
+                        a.Type,
+                        a.Start,
+                        a.End
+                    })
+                    .OrderBy(a => a.UserName)
+                    .ThenBy(a => a.Start)
+                    .ToList();
+
+                string report = "Schedule for Each User:\n";
+                foreach (var schedule in schedules.GroupBy(s => s.UserName))
                 {
-                    connection.Open();
-
-                    string query = @"SELECT u.userName, a.type, a.start, a.end 
-                                     FROM appointment a 
-                                     JOIN user u ON a.userId = u.userId 
-                                     ORDER BY u.userName, a.start";
-
-                    MySqlCommand command = new MySqlCommand(query, connection);
-                    MySqlDataReader reader = command.ExecuteReader();
-
-                    var userSchedules = new Dictionary<string, List<(string Type, DateTime Start, DateTime End)>>();
-
-                    while (reader.Read())
+                    report += $"User: {schedule.Key}\n";
+                    foreach (var appointment in schedule)
                     {
-                        string userName = reader["userName"].ToString();
-                        string type = reader["type"].ToString();
-                        DateTime start = Convert.ToDateTime(reader["start"]).ToLocalTime();
-                        DateTime end = Convert.ToDateTime(reader["end"]).ToLocalTime();
-
-                        if (!userSchedules.ContainsKey(userName))
-                        {
-                            userSchedules[userName] = new List<(string, DateTime, DateTime)>();
-                        }
-
-                        userSchedules[userName].Add((type, start, end));
+                        report += $"  {appointment.Type}: {appointment.Start:MM/dd/yyyy hh:mm tt} - {appointment.End:MM/dd/yyyy hh:mm tt}\n";
                     }
-
-                    string report = "Schedule for Each User:\n";
-                    foreach (var user in userSchedules)
-                    {
-                        report += $"User: {user.Key}\n";
-                        foreach (var appointment in user.Value)
-                        {
-                            report += $"  {appointment.Type}: {appointment.Start:MM/dd/yyyy hh:mm tt} - {appointment.End:MM/dd/yyyy hh:mm tt}\n";
-                        }
-                    }
-
-                    return report;
                 }
+
+                return report;
             }
             catch (Exception ex)
             {
@@ -185,34 +135,28 @@ namespace AppointmentSchedulerWeb.Controllers
             }
         }
 
-        // Report: Total Appointments Per Customer
         private string GenerateTotalAppointmentsPerCustomerReport()
         {
             try
             {
-                using (MySqlConnection connection = new MySqlConnection(connectionString))
-                {
-                    connection.Open();
-
-                    string query = @"SELECT c.customerName, COUNT(a.appointmentId) AS totalAppointments
-                                     FROM appointment a 
-                                     JOIN customer c ON a.customerId = c.customerId 
-                                     GROUP BY c.customerName 
-                                     ORDER BY totalAppointments DESC";
-
-                    MySqlCommand command = new MySqlCommand(query, connection);
-                    MySqlDataReader reader = command.ExecuteReader();
-
-                    var report = "Total Appointments Per Customer:\n";
-                    while (reader.Read())
+                var appointmentsPerCustomer = _context.Appointments
+                    .Include(a => a.Customer)
+                    .GroupBy(a => a.Customer.CustomerName)
+                    .Select(g => new
                     {
-                        string customerName = reader["customerName"].ToString();
-                        int totalAppointments = Convert.ToInt32(reader["totalAppointments"]);
-                        report += $"Customer: {customerName}, Total Appointments: {totalAppointments}\n";
-                    }
+                        CustomerName = g.Key,
+                        TotalAppointments = g.Count()
+                    })
+                    .OrderByDescending(a => a.TotalAppointments)
+                    .ToList();
 
-                    return report;
+                string report = "Total Appointments Per Customer:\n";
+                foreach (var customer in appointmentsPerCustomer)
+                {
+                    report += $"Customer: {customer.CustomerName}, Total Appointments: {customer.TotalAppointments}\n";
                 }
+
+                return report;
             }
             catch (Exception ex)
             {
@@ -221,3 +165,4 @@ namespace AppointmentSchedulerWeb.Controllers
         }
     }
 }
+

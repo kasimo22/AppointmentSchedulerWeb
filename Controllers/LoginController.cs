@@ -1,59 +1,40 @@
-﻿using System.Diagnostics;
-using AppointmentSchedulerWeb.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
-using MySql.Data.MySqlClient;
+﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Resources;
-using Microsoft.AspNetCore.Localization;
-using Microsoft.Extensions.Localization;
+using System.Linq;
 using System.Security.Cryptography;
-using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Npgsql;
+using System.Resources;
 
 namespace AppointmentSchedulerWeb.Controllers
 {
     public class LoginController : Controller
     {
-        private readonly string connectionString = "server=localhost;user=sqlUser;database=client_schedule;port=3306;password=Passw0rd!";
-        private readonly ResourceManager resourceManager = new ResourceManager("AppointmentSchedulerWeb.Resources.LoginForm", typeof(LoginController).Assembly);
+        private readonly string _connectionString;
+        private readonly ResourceManager _resourceManager = new ResourceManager("AppointmentSchedulerWeb.Resources.LoginForm", typeof(LoginController).Assembly);
+
+        public LoginController(IConfiguration configuration)
+        {
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
+        }
 
         private string HashPassword(string password)
         {
             using (SHA256 sha256Hash = SHA256.Create())
             {
-                // Convert the input string to a byte array and compute the hash.
                 byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(password));
-
-                // Convert byte array to a string.
                 StringBuilder builder = new StringBuilder();
-                for (int i = 0; i < bytes.Length; i++)
+                foreach (var b in bytes)
                 {
-                    builder.Append(bytes[i].ToString("x2"));
+                    builder.Append(b.ToString("x2"));
                 }
                 return builder.ToString();
             }
-        }
-
-        private bool VerifyPassword(string enteredPassword, string storedHash)
-        {
-            // Split the stored hash into salt and hash
-            var parts = storedHash.Split('.');
-            if (parts.Length != 2) return false;
-
-            byte[] salt = Convert.FromBase64String(parts[0]);
-            string storedPasswordHash = parts[1];
-
-            // Hash the entered password with the stored salt
-            string enteredPasswordHash = Convert.ToBase64String(KeyDerivation.Pbkdf2(
-                password: enteredPassword,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: 100000,
-                numBytesRequested: 256 / 8));
-
-            return storedPasswordHash == enteredPasswordHash;
         }
 
         [HttpGet]
@@ -73,35 +54,34 @@ namespace AppointmentSchedulerWeb.Controllers
                     return View("Index");
                 }
 
-                using (var connection = new MySqlConnection(connectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     connection.Open();
 
-                    // Query to get the stored hashed password
-                    string query = "SELECT userId, password FROM user WHERE userName = @username";
-                    MySqlCommand command = new MySqlCommand(query, connection);
-                    command.Parameters.AddWithValue("@username", username);
-
-                    using (var reader = command.ExecuteReader())
+                    string query = "SELECT \"userId\", \"password\" FROM \"user\" WHERE \"userName\" = @username";
+                    using (var command = new NpgsqlCommand(query, connection))
                     {
-                        if (reader.Read())
+                        command.Parameters.AddWithValue("@username", username);
+
+                        using (var reader = command.ExecuteReader())
                         {
-                            int userId = Convert.ToInt32(reader["userId"]);
-                            string storedHashedPassword = reader["password"].ToString();
-
-                            // Hash the input password
-                            string inputHashedPassword = HashPassword(password);
-
-                            // Compare hashed passwords
-                            if (storedHashedPassword == inputHashedPassword)
+                            if (reader.Read())
                             {
-                                HttpContext.Session.SetInt32("UserId", userId);
-                                HttpContext.Session.SetString("Username", username);
+                                int userId = Convert.ToInt32(reader["userId"]);
+                                string storedHashedPassword = reader["password"].ToString();
 
-                                LogLogin(username);
-                                CheckUpcomingAppointments(userId);
+                                string inputHashedPassword = HashPassword(password);
 
-                                return RedirectToAction("Index", "MainMenu");
+                                if (storedHashedPassword == inputHashedPassword)
+                                {
+                                    HttpContext.Session.SetInt32("UserId", userId);
+                                    HttpContext.Session.SetString("Username", username);
+
+                                    LogLogin(username);
+                                    CheckUpcomingAppointments(userId);
+
+                                    return RedirectToAction("Index", "MainMenu");
+                                }
                             }
                         }
                     }
@@ -117,39 +97,41 @@ namespace AppointmentSchedulerWeb.Controllers
             }
         }
 
-
         private void CheckUpcomingAppointments(int userId)
         {
-            using (var connection = new MySqlConnection(connectionString))
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
                 connection.Open();
-                string query = @"SELECT a.type, a.start, c.customerName 
-                                 FROM appointment a 
-                                 JOIN customer c ON a.customerId = c.customerId 
-                                 WHERE a.userId = @userId 
-                                 AND a.start BETWEEN UTC_TIMESTAMP() AND DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)";
+                string query = @"
+                    SELECT a.type, a.start, c.customerName
+                    FROM appointment a
+                    JOIN customer c ON a.customerId = c.customerId
+                    WHERE a.userId = @userId
+                    AND a.start BETWEEN NOW() AND NOW() + INTERVAL '15 minutes'";
 
-                MySqlCommand command = new MySqlCommand(query, connection);
-                command.Parameters.AddWithValue("@userId", userId);
-
-                using (MySqlDataReader reader = command.ExecuteReader())
+                using (var command = new NpgsqlCommand(query, connection))
                 {
-                    if (reader.HasRows)
+                    command.Parameters.AddWithValue("@userId", userId);
+
+                    using (var reader = command.ExecuteReader())
                     {
-                        string alertMessage = resourceManager.GetString("UpcomingAppointments", CultureInfo.CurrentCulture) + "\n";
-
-                        while (reader.Read())
+                        if (reader.HasRows)
                         {
-                            string type = reader["type"].ToString();
-                            DateTime utcStart = Convert.ToDateTime(reader["start"]);
-                            DateTime localStart = utcStart.ToLocalTime();
-                            string formattedTime = localStart.ToString("MM/dd/yyyy hh:mm tt");
+                            string alertMessage = _resourceManager.GetString("UpcomingAppointments", CultureInfo.CurrentCulture) + "\n";
 
-                            string customerName = reader["customerName"].ToString();
-                            alertMessage += $"- {type} with {customerName} at {formattedTime}\n";
+                            while (reader.Read())
+                            {
+                                string type = reader["type"].ToString();
+                                DateTime utcStart = Convert.ToDateTime(reader["start"]);
+                                DateTime localStart = utcStart.ToLocalTime();
+                                string formattedTime = localStart.ToString("MM/dd/yyyy hh:mm tt");
+
+                                string customerName = reader["customerName"].ToString();
+                                alertMessage += $"- {type} with {customerName} at {formattedTime}\n";
+                            }
+
+                            TempData["UpcomingAlert"] = alertMessage;
                         }
-
-                        TempData["UpcomingAlert"] = alertMessage;
                     }
                 }
             }
