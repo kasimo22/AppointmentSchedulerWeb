@@ -63,8 +63,12 @@ namespace AppointmentSchedulerWeb.Controllers
                     return View("Index");
                 }
 
+                System.Diagnostics.Debug.WriteLine($"User retrieved: {user.UserName}");
+
                 // Hash the entered password and compare with the stored hash
                 string inputHashedPassword = HashPassword(password);
+                System.Diagnostics.Debug.WriteLine($"Input Hashed Password: {inputHashedPassword}");
+                System.Diagnostics.Debug.WriteLine($"Stored Password: {user.Password}");
                 if (user.Password != inputHashedPassword)
                 {
                     ViewBag.Error = "Invalid username or password. Please try again.";
