@@ -4,7 +4,7 @@ WORKDIR /src
 
 # Copy the .csproj file(s) and restore dependencies
 COPY *.sln .
-COPY YourAppName/*.csproj ./YourAppName/
+COPY AppointmentSchedulerWeb/*.csproj ./AppointmentSchedulerWeb/
 RUN dotnet restore
 
 # Copy the rest of the application files and build the project
