@@ -1,23 +1,20 @@
-# Use the official .NET SDK image to build the app
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
-WORKDIR /app
+# Use official .NET SDK to build the app
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
 
-# Copy everything into the container
-COPY . ./
-
-# Restore dependencies
+# Copy the .csproj file(s) and restore dependencies
+COPY *.sln .
+COPY YourAppName/*.csproj ./YourAppName/
 RUN dotnet restore
 
-# Build and publish the app
-RUN dotnet publish -c Release -o out
+# Copy the rest of the application files and build the project
+COPY . .
+WORKDIR /src/YourAppName
+RUN dotnet publish -c Release -o /app/publish
 
-# Use the runtime image for the app
+# Use a lightweight runtime image to run the app
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
-COPY --from=build-env /app/out .
-
-# Expose the port your app runs on (default 80)
+COPY --from=build /app/publish .
 EXPOSE 80
-
-# Set the entry point for the container
 ENTRYPOINT ["dotnet", "AppointmentSchedulerWeb.dll"]
