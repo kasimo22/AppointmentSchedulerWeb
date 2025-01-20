@@ -78,8 +78,16 @@ namespace AppointmentSchedulerWeb.Controllers
         {
             try
             {
+                TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
                 var appointmentsByMonth = _context.Appointments
-                    .GroupBy(a => new { Month = a.Start.Month, a.Type })
+                    .Select(a => new
+                    {
+                        Month = TimeZoneInfo.ConvertTimeFromUtc(
+                            DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), estZone).Month,
+                        Type = a.Type
+                    })
+                    .GroupBy(a => new { a.Month, a.Type })
                     .Select(g => new
                     {
                         Month = g.Key.Month,
@@ -107,14 +115,18 @@ namespace AppointmentSchedulerWeb.Controllers
         {
             try
             {
+                TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
                 var schedules = _context.Appointments
                     .Include(a => a.User)
                     .Select(a => new
                     {
                         UserName = a.User.UserName,
                         a.Type,
-                        a.Start,
-                        a.End
+                        Start = TimeZoneInfo.ConvertTimeFromUtc(
+                            DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), estZone),
+                        End = TimeZoneInfo.ConvertTimeFromUtc(
+                            DateTime.SpecifyKind(a.End, DateTimeKind.Utc), estZone)
                     })
                     .OrderBy(a => a.UserName)
                     .ThenBy(a => a.Start)
@@ -137,6 +149,7 @@ namespace AppointmentSchedulerWeb.Controllers
                 return $"Error generating report: {ex.Message}";
             }
         }
+
 
         private string GenerateTotalAppointmentsPerCustomerReport()
         {
