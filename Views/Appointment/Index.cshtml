@@ -84,10 +84,10 @@
                                 </span>
                             </td>
                             <td>
-                                <i class="fas fa-calendar-day"></i> @appointment.Start.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                <i class="fas fa-calendar-day"></i> @appointment.Start.ToString("MM/dd/yyyy hh:mm tt")
                             </td>
                             <td>
-                                <i class="fas fa-calendar-day"></i> @appointment.End.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                <i class="fas fa-calendar-day"></i> @appointment.End.ToString("MM/dd/yyyy hh:mm tt")
                             </td>
                             <td class="text-center">
                                 <a asp-action="Edit" asp-route-id="@appointment.AppointmentId" class="btn btn-warning btn-sm me-2">

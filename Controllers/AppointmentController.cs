@@ -19,23 +19,42 @@ namespace AppointmentSchedulerWeb.Controllers
         // GET: Appointment
         public IActionResult Index(string searchString)
         {
+            TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
             var appointments = _context.Appointments
-                                       .Include(a => a.Customer)
-                                       .Include(a => a.User)
-                                       .AsQueryable();
+                .Include(a => a.Customer)
+                .Include(a => a.User)
+                .AsQueryable();
 
             // Search by Type or Customer Name
             if (!string.IsNullOrWhiteSpace(searchString))
             {
                 appointments = appointments.Where(a =>
                     EF.Functions.ILike(a.Type, $"%{searchString}%") ||
-                    EF.Functions.ILike(a.Customer.CustomerName, $"%{searchString}%") ||
-                    EF.Functions.ILike(a.User.UserName, $"%{searchString}%")
-);
+                    EF.Functions.ILike(a.Customer.CustomerName, $"%{searchString}%")
+                );
             }
 
+            // Project to simplified view model with time conversion
+            var appointmentsInEst = appointments
+                .Select(a => new
+                {
+                    a.Type,
+                    a.Customer.CustomerName,
+                    Start = TimeZoneInfo.ConvertTimeFromUtc(a.Start, estZone),
+                    End = TimeZoneInfo.ConvertTimeFromUtc(a.End, estZone)
+                })
+                .ToList()
+                .Select(a => new Appointment
+                {
+                    Type = a.Type,
+                    Start = a.Start,
+                    End = a.End,
+                    Customer = new Customer { CustomerName = a.CustomerName }
+                });
+
             ModelState.Clear();
-            return View(appointments.ToList());
+            return View(appointmentsInEst);
         }
 
         // GET: Appointment/Create
