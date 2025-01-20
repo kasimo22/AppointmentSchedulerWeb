@@ -17,13 +17,12 @@ namespace AppointmentSchedulerWeb.Controllers
         }
 
         // GET: Appointment
-        public IActionResult Index(string searchString)
+        public IActionResult Index(string? searchString = null)
         {
             TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
 
             var appointments = _context.Appointments
                 .Include(a => a.Customer)
-                .Include(a => a.User)
                 .AsQueryable();
 
             // Search by Type or Customer Name
@@ -31,30 +30,27 @@ namespace AppointmentSchedulerWeb.Controllers
             {
                 appointments = appointments.Where(a =>
                     EF.Functions.ILike(a.Type, $"%{searchString}%") ||
-                    EF.Functions.ILike(a.Customer.CustomerName, $"%{searchString}%")
+                    EF.Functions.ILike(a.Customer.CustomerName, $"%{searchString}%") ||
+                    EF.Functions.ILike(a.User.UserName, $"%{searchString}%")
                 );
             }
 
-            // Project to simplified view model with time conversion
-            var appointmentsInEst = appointments
-                .Select(a => new
+            // Convert to ViewModel with time conversion
+            var appointmentViewModels = appointments
+                .ToList()
+                .Select(a => new AppointmentViewModel
                 {
-                    a.Type,
-                    a.Customer.CustomerName,
-                    Start = DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), // Ensure UTC
-                    End = DateTime.SpecifyKind(a.End, DateTimeKind.Utc)     // Ensure UTC
-                })
-                .AsEnumerable() // Switch to in-memory processing
-                .Select(a => new Appointment
-                {
+                    AppointmentId = a.AppointmentId,
+                    CustomerName = a.Customer.CustomerName,
                     Type = a.Type,
-                    Start = TimeZoneInfo.ConvertTimeFromUtc(a.Start, estZone), // Convert to EST
-                    End = TimeZoneInfo.ConvertTimeFromUtc(a.End, estZone),     // Convert to EST
-                    Customer = new Customer { CustomerName = a.CustomerName }
-                });
+                    Start = TimeZoneInfo.ConvertTimeFromUtc(
+                        DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), estZone),
+                    End = TimeZoneInfo.ConvertTimeFromUtc(
+                        DateTime.SpecifyKind(a.End, DateTimeKind.Utc), estZone)
+                })
+                .ToList();
 
-            ModelState.Clear();
-            return View(appointmentsInEst);
+            return View(appointmentViewModels);
         }
 
         // GET: Appointment/Create
@@ -167,7 +163,10 @@ namespace AppointmentSchedulerWeb.Controllers
         // GET: Appointment/Edit/5
         public IActionResult Edit(int id)
         {
-            var appointment = _context.Appointments.FirstOrDefault(a => a.AppointmentId == id);
+            var appointment = _context.Appointments
+                .Include(a => a.Customer)
+                .FirstOrDefault(a => a.AppointmentId == id);
+
             if (appointment == null)
             {
                 return NotFound();
@@ -179,17 +178,29 @@ namespace AppointmentSchedulerWeb.Controllers
 
             // Convert UTC to Eastern Time for display
             TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            appointment.Start = TimeZoneInfo.ConvertTimeFromUtc(appointment.Start, estZone);
-            appointment.End = TimeZoneInfo.ConvertTimeFromUtc(appointment.End, estZone);
+            var startInEst = TimeZoneInfo.ConvertTimeFromUtc(appointment.Start, estZone);
+            var endInEst = TimeZoneInfo.ConvertTimeFromUtc(appointment.End, estZone);
 
-            ViewBag.Customers = new SelectList(_context.Customers, "CustomerId", "CustomerName", appointment.CustomerId);
-            return View(appointment);
+            // Map the Appointment entity to the AppointmentViewModel
+            var viewModel = new AppointmentViewModel
+            {
+                AppointmentId = appointment.AppointmentId,
+                CustomerName = appointment.Customer.CustomerName,
+                CustomerId = appointment.CustomerId,
+                Type = appointment.Type,
+                Start = startInEst,
+                End = endInEst,
+                UserId = appointment.UserId
+            };
+
+            ViewBag.Customers = new SelectList(_context.Customers, "CustomerId", "CustomerName", viewModel.CustomerId);
+            return View(viewModel);
         }
 
         // POST: Appointment/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, Appointment appointment)
+        public IActionResult Edit(int id, AppointmentViewModel viewModel)
         {
             // Remove validation for auto-populated fields
             ModelState.Remove("CreatedBy");
@@ -199,8 +210,9 @@ namespace AppointmentSchedulerWeb.Controllers
             ModelState.Remove("Contact");
             ModelState.Remove("Location");
             ModelState.Remove("Description");
+            ModelState.Remove(nameof(AppointmentViewModel.CustomerName));
 
-            if (id != appointment.AppointmentId)
+            if (id != viewModel.AppointmentId)
             {
                 return NotFound();
             }
@@ -221,53 +233,53 @@ namespace AppointmentSchedulerWeb.Controllers
 
                     // Ensure DateTime.Kind is set to Unspecified before conversion
                     TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-                    appointment.Start = DateTime.SpecifyKind(appointment.Start, DateTimeKind.Unspecified);
-                    appointment.End = DateTime.SpecifyKind(appointment.End, DateTimeKind.Unspecified);
+                    viewModel.Start = DateTime.SpecifyKind(viewModel.Start, DateTimeKind.Unspecified);
+                    viewModel.End = DateTime.SpecifyKind(viewModel.End, DateTimeKind.Unspecified);
 
                     // Convert Eastern Time to UTC for storage
-                    appointment.Start = TimeZoneInfo.ConvertTimeToUtc(appointment.Start, estZone);
-                    appointment.End = TimeZoneInfo.ConvertTimeToUtc(appointment.End, estZone);
+                    viewModel.Start = TimeZoneInfo.ConvertTimeToUtc(viewModel.Start, estZone);
+                    viewModel.End = TimeZoneInfo.ConvertTimeToUtc(viewModel.End, estZone);
 
                     // Validate that End Date is after Start Date
-                    if (appointment.End <= appointment.Start)
+                    if (viewModel.End <= viewModel.Start)
                     {
                         ModelState.AddModelError("", "End date and time must be after the start date and time.");
-                        PopulateCustomersDropdown(appointment.CustomerId);
-                        return View(appointment);
+                        PopulateCustomersDropdown(viewModel.CustomerId);
+                        return View(viewModel);
                     }
 
                     // Business Hours Validation (9 AM - 5 PM EST, Monday-Friday)
-                    DateTime startEST = TimeZoneInfo.ConvertTimeFromUtc(appointment.Start, estZone);
-                    DateTime endEST = TimeZoneInfo.ConvertTimeFromUtc(appointment.End, estZone);
+                    DateTime startEST = TimeZoneInfo.ConvertTimeFromUtc(viewModel.Start, estZone);
+                    DateTime endEST = TimeZoneInfo.ConvertTimeFromUtc(viewModel.End, estZone);
 
                     // Validate business hours
                     if (startEST.Hour < 9 || endEST.Hour > 17 ||
                         startEST.DayOfWeek == DayOfWeek.Saturday || startEST.DayOfWeek == DayOfWeek.Sunday)
                     {
                         ModelState.AddModelError("", "Appointments must be scheduled between 9:00 AM - 5:00 PM EST, Monday-Friday.");
-                        PopulateCustomersDropdown(appointment.CustomerId);
-                        return View(appointment);
+                        PopulateCustomersDropdown(viewModel.CustomerId);
+                        return View(viewModel);
                     }
 
                     // Check for overlapping appointments
                     bool isOverlapping = _context.Appointments.Any(a =>
                         a.AppointmentId != id &&
-                        a.UserId == appointment.UserId &&
-                        ((appointment.Start < a.End) && (appointment.End > a.Start))
+                        a.UserId == viewModel.UserId &&
+                        ((viewModel.Start < a.End) && (viewModel.End > a.Start))
                     );
 
                     if (isOverlapping)
                     {
                         ModelState.AddModelError("", "This appointment overlaps with another existing appointment.");
-                        PopulateCustomersDropdown(appointment.CustomerId);
-                        return View(appointment);
+                        PopulateCustomersDropdown(viewModel.CustomerId);
+                        return View(viewModel);
                     }
 
                     // Update appointment details
-                    existingAppointment.Type = appointment.Type;
-                    existingAppointment.CustomerId = appointment.CustomerId;
-                    existingAppointment.Start = appointment.Start;
-                    existingAppointment.End = appointment.End;
+                    existingAppointment.Type = viewModel.Type;
+                    existingAppointment.CustomerId = viewModel.CustomerId;
+                    existingAppointment.Start = viewModel.Start;
+                    existingAppointment.End = viewModel.End;
                     existingAppointment.LastUpdate = DateTime.UtcNow;
                     existingAppointment.LastUpdateBy = loggedInUser;
 
@@ -283,8 +295,8 @@ namespace AppointmentSchedulerWeb.Controllers
                 }
             }
 
-            PopulateCustomersDropdown(appointment.CustomerId);
-            return View(appointment);
+            PopulateCustomersDropdown(viewModel.CustomerId);
+            return View(viewModel);
         }
 
 

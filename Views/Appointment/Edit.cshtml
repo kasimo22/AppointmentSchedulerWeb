@@ -1,4 +1,4 @@
-﻿@model AppointmentSchedulerWeb.Models.Appointment
+﻿@model AppointmentSchedulerWeb.Models.AppointmentViewModel
 
 @{
     ViewBag.Title = "Edit Appointment";
@@ -45,6 +45,7 @@
 
             <form asp-action="Edit" method="post">
                 <input type="hidden" asp-for="AppointmentId" />
+                <input type="hidden" asp-for="UserId" />
 
                 <div class="mb-3">
                     <label for="CustomerId" class="form-label"><i class="fas fa-user"></i> Customer</label>

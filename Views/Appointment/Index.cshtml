@@ -1,4 +1,4 @@
-﻿@model IEnumerable<AppointmentSchedulerWeb.Models.Appointment>
+﻿@model IEnumerable<AppointmentSchedulerWeb.Models.AppointmentViewModel>
 
 @{
     ViewBag.Title = "Manage Appointments";
@@ -77,7 +77,7 @@
                     @foreach (var appointment in Model)
                     {
                         <tr>
-                            <td>@appointment.Customer.CustomerName</td>
+                            <td>@appointment.CustomerName</td>
                             <td>
                                 <span class="badge bg-info text-dark">
                                     <i class="fas fa-tag"></i> @appointment.Type
