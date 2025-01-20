@@ -8,11 +8,11 @@ namespace AppointmentSchedulerWeb.Models
     public class User
     {
         [Key]
-        [Column("userId")]
+        [Column("userid")]
         public int UserId { get; set; }
 
         [Required]
-        [Column("userName")]
+        [Column("username")]
         public string UserName { get; set; }
 
         [Required]
@@ -22,19 +22,19 @@ namespace AppointmentSchedulerWeb.Models
         [Column("active")]
         public bool Active { get; set; }
 
-        [Column("createDate")]
+        [Column("createdate")]
         public DateTime CreateDate { get; set; }
 
-        [Column("createdBy")]
+        [Column("createdby")]
         public string CreatedBy { get; set; }
 
-        [Column("lastUpdate")]
+        [Column("lastupdate")]
         public DateTime LastUpdate { get; set; }
 
-        [Column("lastUpdateBy")]
+        [Column("lastupdateby")]
         public string LastUpdateBy { get; set; }
 
-        // 🔥 **Add this navigation property to fix the error**
+        // Navigation
         public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
     }
 }

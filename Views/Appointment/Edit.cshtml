@@ -62,16 +62,14 @@
 
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label asp-for="Start" class="form-label"><i class="fas fa-clock"></i> Start Time</label>
-                        <input asp-for="Start" type="datetime-local" class="form-control"
-                               value="@Model.Start.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
+                        <label asp-for="Start" class="form-label"><i class="fas fa-clock"></i> Start Time (EST)</label>
+                        <input asp-for="Start" type="datetime-local" class="form-control" />
                         <span asp-validation-for="Start" class="text-danger"></span>
                     </div>
 
                     <div class="col-md-6 mb-3">
-                        <label asp-for="End" class="form-label"><i class="fas fa-clock"></i> End Time</label>
-                        <input asp-for="End" type="datetime-local" class="form-control"
-                               value="@Model.End.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" />
+                        <label asp-for="End" class="form-label"><i class="fas fa-clock"></i> End Time (EST)</label>
+                        <input asp-for="End" type="datetime-local" class="form-control" />
                         <span asp-validation-for="End" class="text-danger"></span>
                     </div>
                 </div>

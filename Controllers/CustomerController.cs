@@ -19,18 +19,25 @@ namespace AppointmentSchedulerWeb.Controllers
         // GET: Customer
         public IActionResult Index(string searchString)
         {
-            var customers = _context.Customers.Include(c => c.Address).AsQueryable();
-
-            // Search by Customer Name or Address
-            if (!string.IsNullOrEmpty(searchString))
+            try
             {
-                customers = customers.Where(c =>
-                    EF.Functions.ILike(c.CustomerName, $"%{searchString}%") ||
-                    EF.Functions.ILike(c.Address.AddressLine1, $"%{searchString}%")
-                );
-            }
+                var customers = _context.Customers.Include(c => c.Address).AsQueryable();
 
-            return View(customers.ToList());
+                if (!string.IsNullOrEmpty(searchString))
+                {
+                    customers = customers.Where(c =>
+                        c.CustomerName.Contains(searchString) ||
+                        c.Address.AddressLine1.Contains(searchString));
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Generated SQL: {customers.ToQueryString()}");
+                return View(customers.ToList());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
         }
 
         // GET: Customer/Create
@@ -44,12 +51,16 @@ namespace AppointmentSchedulerWeb.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Create(Customer customer)
         {
+            // Remove errors for these fields
+            ModelState.Remove("CreatedBy");
+            ModelState.Remove("LastUpdateBy");
+
             if (ModelState.IsValid)
             {
                 try
                 {
                     // Retrieve the logged-in username from the session
-                    string loggedInUser = HttpContext.Session.GetString("Username");
+                    string loggedInUser = HttpContext.Session.GetString("username") ?? "System";
 
                     if (string.IsNullOrEmpty(loggedInUser))
                     {
@@ -69,6 +80,8 @@ namespace AppointmentSchedulerWeb.Controllers
                     customer.Address.CreatedBy = loggedInUser;
                     customer.Address.LastUpdate = DateTime.UtcNow;
                     customer.Address.LastUpdateBy = loggedInUser;
+
+                    
 
                     // Set a default PostalCode if none is provided
                     customer.Address.PostalCode = string.IsNullOrEmpty(customer.Address.PostalCode) ? "00000" : customer.Address.PostalCode;
@@ -135,12 +148,16 @@ namespace AppointmentSchedulerWeb.Controllers
             if (id != customer.CustomerId)
                 return NotFound();
 
+            // Remove errors for these fields
+            ModelState.Remove("CreatedBy");
+            ModelState.Remove("LastUpdateBy");
+
             if (ModelState.IsValid)
             {
                 try
                 {
                     // Retrieve the logged-in username from the session
-                    string loggedInUser = HttpContext.Session.GetString("Username");
+                    string loggedInUser = HttpContext.Session.GetString("username") ?? "System";
 
                     if (string.IsNullOrEmpty(loggedInUser))
                     {
@@ -200,11 +217,34 @@ namespace AppointmentSchedulerWeb.Controllers
         // GET: Customer/Delete/5
         public IActionResult Delete(int id)
         {
-            var customer = _context.Customers.Find(id);
-            if (customer == null) return NotFound();
+            // Check if the customer exists
+            var customer = _context.Customers.FirstOrDefault(c => c.CustomerId == id);
+            if (customer == null)
+            {
+                TempData["ErrorMessage"] = "Customer not found.";
+                return RedirectToAction(nameof(Index));
+            }
 
-            _context.Customers.Remove(customer);
-            _context.SaveChanges();
+            // Check for associated appointments
+            var hasAppointments = _context.Appointments.Any(a => a.CustomerId == id);
+            if (hasAppointments)
+            {
+                TempData["ErrorMessage"] = "Cannot delete this customer because they have associated appointments. Please delete the appointments first.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                // Delete the customer
+                _context.Customers.Remove(customer);
+                _context.SaveChanges();
+                TempData["SuccessMessage"] = "Customer deleted successfully!";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error deleting customer: {ex.Message}";
+            }
+
             return RedirectToAction(nameof(Index));
         }
 

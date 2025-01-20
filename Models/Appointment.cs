@@ -6,24 +6,54 @@ namespace AppointmentSchedulerWeb.Models
     [Table("appointment")]
     public class Appointment
     {
+        [Key]
+        [Column("appointmentid")]
         public int AppointmentId { get; set; }
+
+        [Column("customerid")]
         public int CustomerId { get; set; }
+
+        [Column("userid")]
         public int UserId { get; set; }
-        public string Title { get; set; } = "not needed";
-        public string Description { get; set; } = "not needed";
-        public string Location { get; set; } = "not needed";
-        public string Contact { get; set; } = "not needed";
-        public string Url { get; set; } = "not needed";
-        public string? Type { get; set; }
+
+        [Column("title")]
+        public string Title { get; set; }
+
+        [Column("description")]
+        public string Description { get; set; }
+
+        [Column("location")]
+        public string Location { get; set; }
+
+        [Column("contact")]
+        public string Contact { get; set; }
+
+        [Column("type")]
+        public string Type { get; set; }
+
+        [Column("url")]
+        public string Url { get; set; }
+
+        [Column("start")]
         public DateTime Start { get; set; }
+
+        [Column("end")]
         public DateTime End { get; set; }
+
+        [Column("createdate")]
         public DateTime CreateDate { get; set; }
-        public string? CreatedBy { get; set; }
+
+        [Column("createdby")]
+        public string CreatedBy { get; set; }
+
+        [Column("lastupdate")]
         public DateTime LastUpdate { get; set; }
-        public string? LastUpdateBy { get; set; }
+
+        [Column("lastupdateby")]
+        public string LastUpdateBy { get; set; }
 
         // Navigation Properties
-        public Customer? Customer { get; set; }
-        public User? User { get; set; }
+        public virtual Customer? Customer { get; set; }
+        public virtual User? User { get; set; }
     }
 }

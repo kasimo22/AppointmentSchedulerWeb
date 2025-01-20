@@ -28,20 +28,20 @@ namespace AppointmentSchedulerWeb.Models
         [RegularExpression(@"^\d{10}$", ErrorMessage = "Phone number must be 10 digits.")]
         public string? Phone { get; set; }
 
-        [Column("createDate")]
+        [Column("createdate")]
         public DateTime CreateDate { get; set; }
 
-        [Column("createdBy")]
+        [Column("createdby")]
         public string? CreatedBy { get; set; }
 
-        [Column("lastUpdate")]
+        [Column("lastupdate")]
         public DateTime LastUpdate { get; set; }
 
-        [Column("lastUpdateBy")]
+        [Column("lastupdateby")]
         public string? LastUpdateBy { get; set; }
 
         // Navigation Property
-        public City? City { get; set; }
-        public ICollection<Customer>? Customers { get; set; }
+        public virtual City? City { get; set; }
+        public virtual ICollection<Customer>? Customers { get; set; }
     }
 }

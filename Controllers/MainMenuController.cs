@@ -21,9 +21,12 @@ namespace AppointmentSchedulerWeb.Controllers
 
         public IActionResult Index()
         {
+            System.Diagnostics.Debug.WriteLine("MainMenuController.Index invoked.");
             // Retrieve username and userId from session
-            var username = HttpContext.Session.GetString("Username");
-            var userId = HttpContext.Session.GetInt32("UserId");
+            var username = HttpContext.Session.GetString("username");
+            var userId = HttpContext.Session.GetInt32("userid");
+            System.Diagnostics.Debug.WriteLine($"Session username: {HttpContext.Session.GetString("username")}");
+
 
             if (string.IsNullOrEmpty(username) || userId == null)
             {
