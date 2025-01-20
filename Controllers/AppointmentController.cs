@@ -41,15 +41,15 @@ namespace AppointmentSchedulerWeb.Controllers
                 {
                     a.Type,
                     a.Customer.CustomerName,
-                    Start = TimeZoneInfo.ConvertTimeFromUtc(a.Start, estZone),
-                    End = TimeZoneInfo.ConvertTimeFromUtc(a.End, estZone)
+                    Start = DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), // Ensure UTC
+                    End = DateTime.SpecifyKind(a.End, DateTimeKind.Utc)     // Ensure UTC
                 })
-                .ToList()
+                .AsEnumerable() // Switch to in-memory processing
                 .Select(a => new Appointment
                 {
                     Type = a.Type,
-                    Start = a.Start,
-                    End = a.End,
+                    Start = TimeZoneInfo.ConvertTimeFromUtc(a.Start, estZone), // Convert to EST
+                    End = TimeZoneInfo.ConvertTimeFromUtc(a.End, estZone),     // Convert to EST
                     Customer = new Customer { CustomerName = a.CustomerName }
                 });
 
