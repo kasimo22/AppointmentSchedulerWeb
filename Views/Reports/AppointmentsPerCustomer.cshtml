@@ -27,27 +27,25 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @{
+                            // Define the EST time zone once, outside the loop
+                            TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                        }
                         @foreach (var appointment in customer.Appointments)
                         {
                             <tr>
                                 <td>@appointment.Type</td>
                                 <td>
                                     @{
-                                        // Safely convert to DateTime if necessary
-                                        DateTime startTime = appointment.Start is DateTime
-                                        ? appointment.Start
-                                        : DateTime.Parse(appointment.Start.ToString());
+                                        DateTime startTime = TimeZoneInfo.ConvertTimeFromUtc(appointment.Start, estZone);
                                     }
-                                    @startTime.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                    @startTime.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
                                 <td>
                                     @{
-                                        // Safely convert to DateTime if necessary
-                                        DateTime endTime = appointment.End is DateTime
-                                        ? appointment.End
-                                        : DateTime.Parse(appointment.End.ToString());
+                                        DateTime endTime = TimeZoneInfo.ConvertTimeFromUtc(appointment.End, estZone);
                                     }
-                                    @endTime.ToLocalTime().ToString("MM/dd/yyyy hh:mm tt")
+                                    @endTime.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
                             </tr>
                         }
