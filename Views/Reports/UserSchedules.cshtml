@@ -36,13 +36,25 @@
                                 <td>@appointment.Type</td>
                                 <td>
                                     @{
-                                        DateTime startTime = TimeZoneInfo.ConvertTimeFromUtc(appointment.Start, estZone);
+                                        // Ensure Start is a DateTime
+                                        DateTime startTime = appointment.Start is DateTime
+                                        ? (DateTime)appointment.Start
+                                        : DateTime.Parse(appointment.Start.ToString());
+
+                                        // Convert to EST
+                                        DateTime startInEst = TimeZoneInfo.ConvertTimeFromUtc(startTime, estZone);
                                     }
                                     @startTime.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
                                 <td>
                                     @{
-                                        DateTime endTime = TimeZoneInfo.ConvertTimeFromUtc(appointment.End, estZone);
+                                        // Ensure End is a DateTime
+                                        DateTime endTime = appointment.End is DateTime
+                                        ? (DateTime)appointment.End
+                                        : DateTime.Parse(appointment.End.ToString());
+
+                                        // Convert to EST
+                                        DateTime endInEst = TimeZoneInfo.ConvertTimeFromUtc(endTime, estZone);
                                     }
                                     @endTime.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
