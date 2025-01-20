@@ -101,6 +101,7 @@ namespace AppointmentSchedulerWeb.Controllers
                 {
                     string monthName = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(group.Month);
                     report += $"Month: {monthName}, Type: {group.Type}, Count: {group.Count}\n";
+
                 }
 
                 return report;
@@ -155,9 +156,19 @@ namespace AppointmentSchedulerWeb.Controllers
         {
             try
             {
+                TimeZoneInfo estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
                 var appointmentsPerCustomer = _context.Appointments
                     .Include(a => a.Customer)
-                    .GroupBy(a => a.Customer.CustomerName)
+                    .Select(a => new
+                    {
+                        a.Customer.CustomerName,
+                        Start = TimeZoneInfo.ConvertTimeFromUtc(
+                            DateTime.SpecifyKind(a.Start, DateTimeKind.Utc), estZone),
+                        End = TimeZoneInfo.ConvertTimeFromUtc(
+                            DateTime.SpecifyKind(a.End, DateTimeKind.Utc), estZone)
+                    })
+                    .GroupBy(a => a.CustomerName)
                     .Select(g => new
                     {
                         CustomerName = g.Key,

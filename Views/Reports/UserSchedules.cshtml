@@ -44,7 +44,7 @@
                                         // Convert to EST
                                         DateTime startInEst = TimeZoneInfo.ConvertTimeFromUtc(startTime, estZone);
                                     }
-                                    @startTime.ToString("MM/dd/yyyy hh:mm tt")
+                                    @startInEst.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
                                 <td>
                                     @{
@@ -56,7 +56,7 @@
                                         // Convert to EST
                                         DateTime endInEst = TimeZoneInfo.ConvertTimeFromUtc(endTime, estZone);
                                     }
-                                    @endTime.ToString("MM/dd/yyyy hh:mm tt")
+                                    @endInEst.ToString("MM/dd/yyyy hh:mm tt")
                                 </td>
                             </tr>
                         }
