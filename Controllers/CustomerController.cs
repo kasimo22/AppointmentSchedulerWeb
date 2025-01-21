@@ -17,17 +17,19 @@ namespace AppointmentSchedulerWeb.Controllers
         }
 
         // GET: Customer
-        public IActionResult Index(string searchString)
+        public IActionResult Index(string? searchString = null)
         {
             try
             {
                 var customers = _context.Customers.Include(c => c.Address).AsQueryable();
 
+                // Check if searchString is provided
                 if (!string.IsNullOrEmpty(searchString))
                 {
                     customers = customers.Where(c =>
-                        c.CustomerName.Contains(searchString) ||
-                        c.Address.AddressLine1.Contains(searchString));
+                        EF.Functions.ILike(c.CustomerName, $"%{searchString}%") || 
+                        (c.Address.AddressLine1 != null && EF.Functions.ILike(c.Address.AddressLine1, $"%{searchString}%")) 
+                    );
                 }
 
                 System.Diagnostics.Debug.WriteLine($"Generated SQL: {customers.ToQueryString()}");
